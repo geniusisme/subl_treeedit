@@ -1,0 +1,9 @@
+[
+    {
+        "keys": ["enter"],
+        "command": "treeedit_open_file",
+        "context": [
+          { "key": "selector", "operator": "equal", "operand": "treeedit" },
+        ]
+    },
+]
