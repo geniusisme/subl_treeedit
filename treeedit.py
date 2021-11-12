@@ -95,6 +95,23 @@ def entries_df(entry):
             for entry in entries_df(child):
                 yield entry
 
+def stack_entries_df(entry):
+    stack = [(0, entry)]
+    yield stack
+    for stack in stack_entries_df_recursive(entry, stack, 1):
+        yield stack
+
+def stack_entries_df_recursive(entry, stack, count_so_far):
+    for child in entry.children:
+        stack.append((count_so_far, child))
+        yield stack
+        count_so_far = count_so_far + 1
+        if child.type == EntryType.DirOpened:
+            for stack in stack_entries_df_recursive(child, stack, count_so_far):
+                yield stack
+                count_so_far = count_so_far + 1
+        stack.pop()
+
 class TreeeditShowCurrentCommand(sublime_plugin.TextCommand):
     def run(self, edit):
         self.view.window().run_command("treeedit_show_file", {"file": self.view.file_name()})
@@ -106,9 +123,11 @@ class TreeeditOpenFileCommand(sublime_plugin.TextCommand):
     def run(self, edit):
         files = [self.view.rowcol(file.a)[0] for sel in self.view.sel() for file in self.view.lines(sel)]
         if len(files) == 0:
+            print("treeedit: no cursor in view")
             return
         elif files[0] == 0:
             if len(files) > 1:
+                print("treeedit: to go up a level, only have cursor on first line (..)")
                 return
             tree = tree_by_view(self.view)
             tree.root = tree.root.make_parent()
@@ -119,15 +138,15 @@ class TreeeditOpenFileCommand(sublime_plugin.TextCommand):
         if all(map(lambda p: p.path.is_file(), entries)):
             for entry in entries:
                 self.view.window().open_file(entry.path.as_posix())
-        else:
-            if len(entries) == 1:
-                entry = entries[0]
+        elif all(map(lambda p: p.path.is_dir(), entries)):
+            for entry in entries:
                 if entry.type == EntryType.DirClosed:
                     entry.type = EntryType.DirOpened
                     entry.refresh()
                 elif entry.type == EntryType.DirOpened:
                     entry.type = EntryType.DirClosed
                 self.view.run_command("treeedit_sync_tree")
+        else: print("treeedit: to avoid confusion, opening both files and folders at once is not supported")
 
 class TreeeditRenderFileCommand(sublime_plugin.TextCommand):
     def run(self, edit, file):
@@ -149,6 +168,7 @@ class TreeeditRenderFileCommand(sublime_plugin.TextCommand):
                 start_point = self.view.full_line(needle).b
         self.view.sel().clear()
         self.view.sel().add(self.view.line(start_point - 1))
+        self.view.show_at_center(start_point)
 
 class TreeeditSyncTreeCommand(sublime_plugin.TextCommand):
     def run(self, edit):
@@ -162,6 +182,7 @@ class TreeeditSyncTreeCommand(sublime_plugin.TextCommand):
         self.render_children(root.children, 0, edit)
         self.view.sel().clear()
         self.view.sel().add(sel)
+        self.view.show(sel, False, False, False)
         self.view.set_read_only(True)
 
     def render_children(self, children, depth, edit):
@@ -228,3 +249,35 @@ class TreeeditShowFileCommand(sublime_plugin.WindowCommand):
         global trees
         trees.append(tree)
         return tree
+
+class TreeeditJumpUpFolderCommand(sublime_plugin.TextCommand):
+    def run(self, edit):
+        files = [self.view.rowcol(file.a)[0] for sel in self.view.sel() for file in self.view.lines(sel)]
+        vis_start = self.view.rowcol(self.view.visible_region().a)[0]
+        vis_end = self.view.rowcol(self.view.visible_region().b)[0]
+        show_line = find(files, lambda line: vis_start <= line and line <= vis_end)
+        if len(files) == 0:
+            print("treeedit: no cursor in view")
+            return
+        elif files[0] == 0:
+            print("treeedit: to go up a level, use treeedit_open_file command or bound key")
+            return
+        root = tree_by_view(self.view).root
+        parent_lines = []
+        file_line = 0
+        for line, stack in enumerate(stack_entries_df(root)):
+            if line == files[file_line]:
+                # #todo: find indentation and move cursor there?
+                parent_line = stack[-2][0]
+                parent_lines.append(parent_line)
+                file_line = file_line + 1
+                if line == show_line:
+                    self.view.show(self.view.text_point(parent_line, 0), False)
+                if file_line == len(files):
+                    break
+
+        self.view.sel().clear()
+        for line in parent_lines:
+            start = self.view.text_point(line, 0)
+            self.view.sel().add(sublime.Region(start, start))
+

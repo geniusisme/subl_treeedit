@@ -6,4 +6,11 @@
           { "key": "selector", "operator": "equal", "operand": "treeedit" },
         ]
     },
+    {
+        "keys": ["u"],
+        "command": "treeedit_jump_up_folder",
+        "context": [
+          { "key": "selector", "operator": "equal", "operand": "treeedit" },
+        ]
+    },
 ]
