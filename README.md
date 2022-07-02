@@ -28,7 +28,7 @@ treeedit.sublime-syntax
 
 ## Usage
 
-In command palette choose "Treeedit Show In Tree" to open tree witch current file.
+In command palette choose "Treeedit: Show In Tree" to open tree with current file.
 
 Use arrow keys to navigate around. Enter to open file and to fold/unfold directories.
 
