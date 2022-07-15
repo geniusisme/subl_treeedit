@@ -261,7 +261,7 @@ class TreeeditShowFileCommand(sublime_plugin.WindowCommand):
     def view_for_path(self, path):
         prune_closed(self.window)
         global trees
-        tree = find(trees, lambda t: relative_part(path, t.root.path) != None)
+        tree = find(trees, lambda t: (relative_part(path, t.root.path) != None) and (t.window_id == self.window.id()) )
         if tree == None:
             view = self.make_view()
             tree = self.make_and_insert_tree(path, view)
