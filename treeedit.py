@@ -161,7 +161,10 @@ class TreeeditOpenFileCommand(sublime_plugin.TextCommand):
                         in_group = in_group + 1
                     elif in_group > 0:
                         in_group = in_group - 1
-                    self.view.window().open_file(entry.path.as_posix(), group = in_group)
+                    try:
+                        self.view.window().open_file(entry.path.as_posix(), group = in_group)
+                    except Error as err:
+                        print("file: {} could not be open due to: {}".format(entry.path, str(err)))
             elif all(map(lambda p: p.path.is_dir(), entries)):
                 for entry in entries:
                     if entry.type == EntryType.DirClosed:
@@ -272,6 +275,10 @@ class TreeeditShowFileCommand(sublime_plugin.WindowCommand):
 
     def make_view(self):
         new_view = self.window.new_file()
+        if self.window.num_groups() > 1:
+            idx = self.window.active_group() + 1
+            if idx == self.window.num_groups(): idx = 0
+            self.window.set_view_index(new_view, idx, 0)
         new_view.set_scratch(True)
         new_view.assign_syntax("scope:treeedit")
         new_view.set_read_only(True)
